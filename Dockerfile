@@ -28,11 +28,10 @@ WORKDIR /app
 
 # Install the wheel from the builder stage
 COPY --from=builder /dist/*.whl /tmp/
-RUN pip install --no-cache-dir /tmp/*.whl
-
-# Install Playwright + bake Chromium into the image
-# This means zero download delay at runtime
-RUN playwright install chromium --with-deps
+# Install the wheel + playwright Python package, then bake Chromium binary.
+# Combined into one RUN layer so the cache is consistent.
+RUN pip install --no-cache-dir /tmp/*.whl playwright && \
+    python -m playwright install chromium --with-deps
 
 # MCP servers communicate over stdio — no port needed by default
 # but expose 8080 for HTTP transport mode
