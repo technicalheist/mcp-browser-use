@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "browser-mcp-server"
+version = "0.2.0"
+description = "MCP server that gives any LLM agent full browser control via browser-use. Auto-state after every action."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "technicalheist", email = "" }]
+keywords = ["mcp", "browser", "browser-use", "llm", "agent", "automation", "playwright"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "browser-use>=0.12.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/technicalheist/mcp-browser-use"
+Repository = "https://github.com/technicalheist/mcp-browser-use"
+Issues = "https://github.com/technicalheist/mcp-browser-use/issues"
+
+[project.scripts]
+browser-mcp-server = "mcp_browser_use.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_browser_use"]
