@@ -14,17 +14,42 @@ Every action that changes the page (`open`, `click`, `input`, `type`, `keys`, `s
 
 ## Installation
 
+### Option 1 — Docker (recommended, zero PATH issues)
+
+```bash
+docker pull technicalheist/browser-mcp-server
+```
+
+Chromium is baked into the image — nothing else to install.
+
+### Option 2 — pip
+
 ```bash
 pip install browser-mcp-server
 ```
 
 > **Chromium is installed automatically on first run.** The server detects whether
 > the browser binary is present and downloads it if not (~170 MB, one-time).
-> You never need to run `playwright install chromium` manually.
 
 ---
 
 ## Quick Start
+
+### VS Code
+
+Add to `.vscode/mcp.json` in your workspace:
+
+```json
+{
+  "servers": {
+    "browser-use": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "technicalheist/browser-mcp-server"]
+    }
+  }
+}
+```
 
 ### Claude Desktop
 
@@ -34,7 +59,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "browser-use": {
-      "command": "browser-mcp-server"
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "technicalheist/browser-mcp-server"]
     }
   }
 }
@@ -42,17 +68,20 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ### Cursor / Zed / Windsurf
 
-Add to your MCP settings:
-
 ```json
 {
   "mcpServers": {
     "browser-use": {
-      "command": "browser-mcp-server"
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "technicalheist/browser-mcp-server"]
     }
   }
 }
 ```
+
+> **Why Docker?** GUI apps like VS Code and Claude Desktop don't inherit your
+> shell PATH, so commands installed via pip or pipx are invisible to them.
+> Docker is always on the system PATH so it works everywhere, first time.
 
 ### nixagent (`mcp.json`)
 
@@ -60,7 +89,8 @@ Add to your MCP settings:
 {
   "mcpServers": {
     "browser-use": {
-      "command": "browser-mcp-server",
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "technicalheist/browser-mcp-server"],
       "active": true
     }
   }
@@ -78,14 +108,10 @@ agent = Agent(
 agent.run("Go to stripe.com and tell me the pricing for the Starter plan.")
 ```
 
-### HTTP / Remote Agents
+### HTTP / Remote Agents (no Docker)
 
 ```bash
-# Modern streaming (recommended)
 browser-mcp-server --transport streamable-http --port 8080
-
-# Legacy SSE
-browser-mcp-server --transport sse --port 8080
 ```
 
 ---
@@ -147,10 +173,10 @@ options:
 
 ## Requirements
 
-- Python 3.10+
-- `browser-use >= 0.12.0`
-- `mcp >= 1.0.0`
-- Chromium (installed via `playwright install chromium`)
+- **Docker** (recommended — zero setup) OR Python 3.10+ with pip
+- `browser-use >= 0.12.0` (installed automatically)
+- `mcp >= 1.0.0` (installed automatically)
+- Chromium (baked into Docker image, or auto-installed on first run with pip)
 
 ---
 
