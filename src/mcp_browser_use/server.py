@@ -45,6 +45,16 @@ from .tools import (
     browser_get_html,
     browser_get_title,
     browser_close,
+    browser_screenshot,
+    browser_switch_tab,
+    browser_close_tab,
+    browser_hover,
+    browser_dblclick,
+    browser_rightclick,
+    browser_select,
+    browser_eval,
+    browser_get_value,
+    browser_get_attributes,
 )
 
 # ── Chromium auto-install ─────────────────────────────────────────────────────
@@ -113,6 +123,16 @@ def create_server() -> FastMCP:
             "  'get html'                   → full page HTML\n"
             "  'get html --selector \"h1\"'   → scoped HTML\n"
             "  'get title'                  → page title\n"
+            "  'screenshot path.png'        → save screenshot\n"
+            "  'switch 1'                   → switch tab, state auto-returned\n"
+            "  'close-tab 1'                → close tab, state auto-returned\n"
+            "  'hover 2'                    → hover element, state auto-returned\n"
+            "  'dblclick 2'                 → double click element, state auto-returned\n"
+            "  'rightclick 2'               → right click element, state auto-returned\n"
+            "  'select 2 \"option\"'          → select dropdown option, state auto-returned\n"
+            "  'eval \"document.title\"'      → execute javascript\n"
+            "  'get value 2'                → get input/textarea value\n"
+            "  'get attributes 2'           → get element attributes\n"
             "  'close --all'                → close all sessions"
         )
     )
@@ -298,6 +318,91 @@ def create_server() -> FastMCP:
     def browser_close_tool() -> str:
         """Close all browser sessions and end the task."""
         return browser_close()
+
+    # ── tool: browser_screenshot ──────────────────────────────────────────────
+    @mcp.tool(
+        description="Take a screenshot and save it to a directory. Defaults to './screenshots'."
+    )
+    def browser_screenshot_tool(directory: str = "screenshots") -> str:
+        """
+        Take a screenshot of the current page.
+
+        Args:
+            directory: The directory to save the screenshot in. Defaults to 'screenshots'.
+        """
+        return browser_screenshot(directory)
+
+    # ── tool: browser_switch_tab ──────────────────────────────────────────────
+    @mcp.tool(
+        description="Switch to a specific tab by its index. The updated page state is returned automatically."
+    )
+    def browser_switch_tab_tool(index: int) -> str:
+        """Switch to a tab by index."""
+        return browser_switch_tab(index)
+
+    # ── tool: browser_close_tab ───────────────────────────────────────────────
+    @mcp.tool(
+        description="Close the current tab or a specific tab by index. The updated page state is returned automatically."
+    )
+    def browser_close_tab_tool(index: int = None) -> str:
+        """Close a tab. If index is not provided, closes the current tab."""
+        return browser_close_tab(index)
+
+    # ── tool: browser_hover ───────────────────────────────────────────────────
+    @mcp.tool(
+        description="Hover over an element by its index. The updated page state is returned automatically."
+    )
+    def browser_hover_tool(index: int) -> str:
+        """Hover over the element at index."""
+        return browser_hover(index)
+
+    # ── tool: browser_dblclick ────────────────────────────────────────────────
+    @mcp.tool(
+        description="Double-click an element by its index. The updated page state is returned automatically."
+    )
+    def browser_dblclick_tool(index: int) -> str:
+        """Double-click the element at index."""
+        return browser_dblclick(index)
+
+    # ── tool: browser_rightclick ──────────────────────────────────────────────
+    @mcp.tool(
+        description="Right-click an element by its index. The updated page state is returned automatically."
+    )
+    def browser_rightclick_tool(index: int) -> str:
+        """Right-click the element at index."""
+        return browser_rightclick(index)
+
+    # ── tool: browser_select ──────────────────────────────────────────────────
+    @mcp.tool(
+        description="Select a dropdown option for an element by its index. The updated page state is returned automatically."
+    )
+    def browser_select_tool(index: int, option: str) -> str:
+        """Select a dropdown option."""
+        return browser_select(index, option)
+
+    # ── tool: browser_eval ────────────────────────────────────────────────────
+    @mcp.tool(
+        description="Execute JavaScript on the current page and return the result."
+    )
+    def browser_eval_tool(js_code: str) -> str:
+        """Execute JavaScript."""
+        return browser_eval(js_code)
+
+    # ── tool: browser_get_value ───────────────────────────────────────────────
+    @mcp.tool(
+        description="Get the value of an input or textarea element by its index."
+    )
+    def browser_get_value_tool(index: int) -> str:
+        """Get the value of an element at index."""
+        return browser_get_value(index)
+
+    # ── tool: browser_get_attributes ──────────────────────────────────────────
+    @mcp.tool(
+        description="Get all attributes of an element by its index as JSON."
+    )
+    def browser_get_attributes_tool(index: int) -> str:
+        """Get all attributes of an element at index as JSON."""
+        return browser_get_attributes(index)
 
     return mcp
 

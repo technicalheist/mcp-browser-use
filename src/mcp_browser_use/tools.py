@@ -16,7 +16,8 @@ from typing import Optional
 
 
 # Commands that mutate the page → state is auto-appended after each of these.
-_MUTATING_CMDS = {"open", "click", "input", "type", "keys", "scroll", "back"}
+_MUTATING_CMDS = {"open", "click", "input", "type", "keys", "scroll", "back",
+                  "switch", "close-tab", "hover", "dblclick", "rightclick", "select"}
 
 
 # ── Low-level runner ──────────────────────────────────────────────────────────
@@ -128,3 +129,50 @@ def browser_get_title() -> str:
 def browser_close() -> str:
     """Close all browser sessions. Call when the task is done."""
     return browser_use("close --all")
+
+def browser_screenshot(directory: str = "screenshots") -> str:
+    """Take a screenshot and save it to the specified directory."""
+    import os
+    import time
+    os.makedirs(directory, exist_ok=True)
+    timestamp = str(int(time.time()))
+    filepath = os.path.join(directory, f"{timestamp}.png")
+    return browser_use(f"screenshot {filepath}")
+
+def browser_switch_tab(index: int) -> str:
+    """Switch to a specific tab by index. Page state auto-returned."""
+    return browser_use(f"switch {index}")
+
+def browser_close_tab(index: Optional[int] = None) -> str:
+    """Close the current tab or a specific tab by index. Page state auto-returned."""
+    if index is not None:
+        return browser_use(f"close-tab {index}")
+    return browser_use("close-tab")
+
+def browser_hover(index: int) -> str:
+    """Hover over the element at index. Page state auto-returned."""
+    return browser_use(f"hover {index}")
+
+def browser_dblclick(index: int) -> str:
+    """Double-click the element at index. Page state auto-returned."""
+    return browser_use(f"dblclick {index}")
+
+def browser_rightclick(index: int) -> str:
+    """Right-click the element at index. Page state auto-returned."""
+    return browser_use(f"rightclick {index}")
+
+def browser_select(index: int, option: str) -> str:
+    """Select a dropdown option. Page state auto-returned."""
+    return browser_use(f'select {index} "{option}"')
+
+def browser_eval(js_code: str) -> str:
+    """Execute JavaScript and return the result."""
+    return browser_use(f'eval "{js_code}"')
+
+def browser_get_value(index: int) -> str:
+    """Get the value of an input or textarea element at index."""
+    return browser_use(f"get value {index}")
+
+def browser_get_attributes(index: int) -> str:
+    """Get all attributes of the element at index as JSON."""
+    return browser_use(f"get attributes {index}")
