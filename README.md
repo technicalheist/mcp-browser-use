@@ -45,7 +45,14 @@ Add to `.vscode/mcp.json` in your workspace:
     "browser-use": {
       "type": "stdio",
       "command": "docker",
-      "args": ["run", "--rm", "-i", "technicalheist/browser-mcp-server"]
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-v",
+        "${PWD}/screenshots:/app/screenshots",
+        "technicalheist/browser-mcp-server"
+      ]
     }
   }
 }
@@ -60,7 +67,14 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "browser-use": {
       "command": "docker",
-      "args": ["run", "--rm", "-i", "technicalheist/browser-mcp-server"]
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-v",
+        "${PWD}/screenshots:/app/screenshots",
+        "technicalheist/browser-mcp-server"
+      ]
     }
   }
 }
@@ -73,7 +87,14 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "browser-use": {
       "command": "docker",
-      "args": ["run", "--rm", "-i", "technicalheist/browser-mcp-server"]
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-v",
+        "${PWD}/screenshots:/app/screenshots",
+        "technicalheist/browser-mcp-server"
+      ]
     }
   }
 }
@@ -89,8 +110,16 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "browser-use": {
+      "type": "stdio",
       "command": "docker",
-      "args": ["run", "--rm", "-i", "technicalheist/browser-mcp-server"],
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-v",
+        "${PWD}/screenshots:/app/screenshots",
+        "technicalheist/browser-mcp-server"
+      ],
       "active": true
     }
   }
@@ -118,21 +147,31 @@ browser-mcp-server --transport streamable-http --port 8080
 
 ## Available Tools
 
-| Tool                       | Description                                               |
-| -------------------------- | --------------------------------------------------------- |
-| `browser_use_tool`       | Generic dispatcher — any browser-use command             |
-| `browser_open_tool`      | Open URL →**state auto-returned**                  |
-| `browser_click_tool`     | Click by index →**state auto-returned**            |
-| `browser_input_tool`     | Click + type (preferred) →**state auto-returned**  |
-| `browser_type_tool`      | Type into focused element →**state auto-returned** |
-| `browser_keys_tool`      | Send keyboard key →**state auto-returned**         |
-| `browser_scroll_tool`    | Scroll up/down →**state auto-returned**            |
-| `browser_back_tool`      | Navigate back →**state auto-returned**             |
-| `browser_state_tool`     | Explicit state fetch*(rarely needed)*                   |
-| `browser_get_text_tool`  | Extract element text                                      |
-| `browser_get_html_tool`  | Full/scoped page HTML                                     |
-| `browser_get_title_tool` | Page title                                                |
-| `browser_close_tool`     | Close all sessions*(call when done)*                    |
+| Tool                            | Description                                               |
+| ------------------------------- | --------------------------------------------------------- |
+| `browser_use_tool`              | Generic dispatcher — any browser-use command              |
+| `browser_open_tool`             | Open URL →**state auto-returned**                         |
+| `browser_click_tool`            | Click by index →**state auto-returned**                   |
+| `browser_input_tool`            | Click + type (preferred) →**state auto-returned**         |
+| `browser_type_tool`             | Type into focused element →**state auto-returned**        |
+| `browser_keys_tool`             | Send keyboard key →**state auto-returned**                |
+| `browser_scroll_tool`           | Scroll up/down →**state auto-returned**                   |
+| `browser_back_tool`             | Navigate back →**state auto-returned**                    |
+| `browser_switch_tab_tool`       | Switch tab by index →**state auto-returned**              |
+| `browser_close_tab_tool`        | Close current or specific tab →**state auto-returned**    |
+| `browser_hover_tool`            | Hover over element →**state auto-returned**               |
+| `browser_dblclick_tool`         | Double-click element →**state auto-returned**             |
+| `browser_rightclick_tool`       | Right-click element →**state auto-returned**              |
+| `browser_select_tool`           | Select dropdown option →**state auto-returned**           |
+| `browser_state_tool`            | Explicit state fetch*(rarely needed)*                     |
+| `browser_screenshot_tool`       | Take screenshot & save to directory                       |
+| `browser_get_text_tool`         | Extract element text                                      |
+| `browser_get_html_tool`         | Full/scoped page HTML                                     |
+| `browser_get_title_tool`        | Page title                                                |
+| `browser_eval_tool`             | Execute custom JavaScript                                 |
+| `browser_get_value_tool`        | Extract input or textarea value                           |
+| `browser_get_attributes_tool`   | Extract all element attributes as JSON                    |
+| `browser_close_tool`            | Close all sessions*(call when done)*                      |
 
 ---
 
