@@ -102,14 +102,14 @@ def create_server() -> FastMCP:
             "  'close --all'                → close all sessions"
         )
     )
-    def browser_use_tool(command: str) -> str:
+    async def browser_use_tool(command: str) -> str:
         """
         Run a browser-use CLI command.
 
         Args:
             command: Sub-command string (e.g. 'open https://example.com').
         """
-        return browser_use(command)
+        return await browser_use(command)
 
     # ── tool: browser_open ────────────────────────────────────────────────────
     @mcp.tool(
@@ -119,14 +119,14 @@ def create_server() -> FastMCP:
             "is returned automatically."
         )
     )
-    def browser_open_tool(url: str) -> str:
+    async def browser_open_tool(url: str) -> str:
         """
         Navigate to a URL and return the page state.
 
         Args:
             url: Full URL to open (e.g. 'https://news.ycombinator.com').
         """
-        return browser_open(url)
+        return await browser_open(url)
 
     # ── tool: browser_state ───────────────────────────────────────────────────
     @mcp.tool(
@@ -136,9 +136,9 @@ def create_server() -> FastMCP:
             "Rarely needed — mutating commands already return state automatically."
         )
     )
-    def browser_state_tool() -> str:
+    async def browser_state_tool() -> str:
         """Explicitly fetch the current page state."""
-        return browser_state()
+        return await browser_state()
 
     # ── tool: browser_click ───────────────────────────────────────────────────
     @mcp.tool(
@@ -147,14 +147,14 @@ def create_server() -> FastMCP:
             "The updated page state is returned automatically after clicking."
         )
     )
-    def browser_click_tool(index: int) -> str:
+    async def browser_click_tool(index: int) -> str:
         """
         Click the element at the given index.
 
         Args:
             index: Element index from the page state list.
         """
-        return browser_click(index)
+        return await browser_click(index)
 
     # ── tool: browser_input ───────────────────────────────────────────────────
     @mcp.tool(
@@ -164,7 +164,7 @@ def create_server() -> FastMCP:
             "The updated page state is returned automatically."
         )
     )
-    def browser_input_tool(index: int, text: str) -> str:
+    async def browser_input_tool(index: int, text: str) -> str:
         """
         Click element at index, then type text.
 
@@ -172,7 +172,7 @@ def create_server() -> FastMCP:
             index: Element index from the page state list.
             text:  Text to type.
         """
-        return browser_input(index, text)
+        return await browser_input(index, text)
 
     # ── tool: browser_type ────────────────────────────────────────────────────
     @mcp.tool(
@@ -181,14 +181,14 @@ def create_server() -> FastMCP:
             "The updated page state is returned automatically."
         )
     )
-    def browser_type_tool(text: str) -> str:
+    async def browser_type_tool(text: str) -> str:
         """
         Type into the focused element.
 
         Args:
             text: The text to type.
         """
-        return browser_type(text)
+        return await browser_type(text)
 
     # ── tool: browser_keys ────────────────────────────────────────────────────
     @mcp.tool(
@@ -198,14 +198,14 @@ def create_server() -> FastMCP:
             "The updated page state is returned automatically."
         )
     )
-    def browser_keys_tool(key: str) -> str:
+    async def browser_keys_tool(key: str) -> str:
         """
         Press a keyboard key.
 
         Args:
             key: Key name (e.g. 'Enter', 'Tab', 'Escape', 'ArrowDown').
         """
-        return browser_keys(key)
+        return await browser_keys(key)
 
     # ── tool: browser_scroll ──────────────────────────────────────────────────
     @mcp.tool(
@@ -214,7 +214,7 @@ def create_server() -> FastMCP:
             "The updated page state is returned automatically."
         )
     )
-    def browser_scroll_tool(direction: str = "down") -> str:
+    async def browser_scroll_tool(direction: str = "down") -> str:
         """
         Scroll the page.
 
@@ -223,7 +223,7 @@ def create_server() -> FastMCP:
         """
         if direction not in ("up", "down"):
             return "Error: direction must be 'up' or 'down'."
-        return browser_scroll(direction)
+        return await browser_scroll(direction)
 
     # ── tool: browser_back ────────────────────────────────────────────────────
     @mcp.tool(
@@ -232,22 +232,22 @@ def create_server() -> FastMCP:
             "The updated page state is returned automatically."
         )
     )
-    def browser_back_tool() -> str:
+    async def browser_back_tool() -> str:
         """Go back one page."""
-        return browser_back()
+        return await browser_back()
 
     # ── tool: browser_get_text ────────────────────────────────────────────────
     @mcp.tool(
         description="Get the text content of a specific element by its index number."
     )
-    def browser_get_text_tool(index: int) -> str:
+    async def browser_get_text_tool(index: int) -> str:
         """
         Extract the visible text of an element.
 
         Args:
             index: Element index from the page state list.
         """
-        return browser_get_text(index)
+        return await browser_get_text(index)
 
     # ── tool: browser_get_html ────────────────────────────────────────────────
     @mcp.tool(
@@ -256,7 +256,7 @@ def create_server() -> FastMCP:
             "using a CSS selector. Useful for scraping structured data."
         )
     )
-    def browser_get_html_tool(selector: str = "") -> str:
+    async def browser_get_html_tool(selector: str = "") -> str:
         """
         Retrieve page HTML.
 
@@ -264,13 +264,13 @@ def create_server() -> FastMCP:
             selector: Optional CSS selector (e.g. 'h1', '.price').
                       Leave empty for full page HTML.
         """
-        return browser_get_html(selector if selector else None)
+        return await browser_get_html(selector if selector else None)
 
     # ── tool: browser_get_title ───────────────────────────────────────────────
     @mcp.tool(description="Get the title of the current browser page.")
-    def browser_get_title_tool() -> str:
+    async def browser_get_title_tool() -> str:
         """Return the current page title."""
-        return browser_get_title()
+        return await browser_get_title()
 
     # ── tool: browser_close ───────────────────────────────────────────────────
     @mcp.tool(
@@ -279,94 +279,94 @@ def create_server() -> FastMCP:
             "ALWAYS call this when the task is fully complete."
         )
     )
-    def browser_close_tool() -> str:
+    async def browser_close_tool() -> str:
         """Close all browser sessions and end the task."""
-        return browser_close()
+        return await browser_close()
 
     # ── tool: browser_screenshot ──────────────────────────────────────────────
     @mcp.tool(
         description="Take a screenshot and save it to a directory. Defaults to './screenshots'."
     )
-    def browser_screenshot_tool(directory: str = "screenshots") -> str:
+    async def browser_screenshot_tool(directory: str = "screenshots") -> str:
         """
         Take a screenshot of the current page.
 
         Args:
             directory: The directory to save the screenshot in. Defaults to 'screenshots'.
         """
-        return browser_screenshot(directory)
+        return await browser_screenshot(directory)
 
     # ── tool: browser_switch_tab ──────────────────────────────────────────────
     @mcp.tool(
         description="Switch to a specific tab by its index. The updated page state is returned automatically."
     )
-    def browser_switch_tab_tool(index: int) -> str:
+    async def browser_switch_tab_tool(index: int) -> str:
         """Switch to a tab by index."""
-        return browser_switch_tab(index)
+        return await browser_switch_tab(index)
 
     # ── tool: browser_close_tab ───────────────────────────────────────────────
     @mcp.tool(
         description="Close the current tab or a specific tab by index. The updated page state is returned automatically."
     )
-    def browser_close_tab_tool(index: int = None) -> str:
+    async def browser_close_tab_tool(index: int = None) -> str:
         """Close a tab. If index is not provided, closes the current tab."""
-        return browser_close_tab(index)
+        return await browser_close_tab(index)
 
     # ── tool: browser_hover ───────────────────────────────────────────────────
     @mcp.tool(
         description="Hover over an element by its index. The updated page state is returned automatically."
     )
-    def browser_hover_tool(index: int) -> str:
+    async def browser_hover_tool(index: int) -> str:
         """Hover over the element at index."""
-        return browser_hover(index)
+        return await browser_hover(index)
 
     # ── tool: browser_dblclick ────────────────────────────────────────────────
     @mcp.tool(
         description="Double-click an element by its index. The updated page state is returned automatically."
     )
-    def browser_dblclick_tool(index: int) -> str:
+    async def browser_dblclick_tool(index: int) -> str:
         """Double-click the element at index."""
-        return browser_dblclick(index)
+        return await browser_dblclick(index)
 
     # ── tool: browser_rightclick ──────────────────────────────────────────────
     @mcp.tool(
         description="Right-click an element by its index. The updated page state is returned automatically."
     )
-    def browser_rightclick_tool(index: int) -> str:
+    async def browser_rightclick_tool(index: int) -> str:
         """Right-click the element at index."""
-        return browser_rightclick(index)
+        return await browser_rightclick(index)
 
     # ── tool: browser_select ──────────────────────────────────────────────────
     @mcp.tool(
         description="Select a dropdown option for an element by its index. The updated page state is returned automatically."
     )
-    def browser_select_tool(index: int, option: str) -> str:
+    async def browser_select_tool(index: int, option: str) -> str:
         """Select a dropdown option."""
-        return browser_select(index, option)
+        return await browser_select(index, option)
 
     # ── tool: browser_eval ────────────────────────────────────────────────────
     @mcp.tool(
         description="Execute JavaScript on the current page and return the result."
     )
-    def browser_eval_tool(js_code: str) -> str:
+    async def browser_eval_tool(js_code: str) -> str:
         """Execute JavaScript."""
-        return browser_eval(js_code)
+        return await browser_eval(js_code)
 
     # ── tool: browser_get_value ───────────────────────────────────────────────
     @mcp.tool(
         description="Get the value of an input or textarea element by its index."
     )
-    def browser_get_value_tool(index: int) -> str:
+    async def browser_get_value_tool(index: int) -> str:
         """Get the value of an element at index."""
-        return browser_get_value(index)
+        return await browser_get_value(index)
 
     # ── tool: browser_get_attributes ──────────────────────────────────────────
     @mcp.tool(
         description="Get all attributes of an element by its index as JSON."
     )
-    def browser_get_attributes_tool(index: int) -> str:
+    async def browser_get_attributes_tool(index: int) -> str:
         """Get all attributes of an element at index as JSON."""
-        return browser_get_attributes(index)
+        return await browser_get_attributes(index)
 
     return mcp
 
