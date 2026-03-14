@@ -1,178 +1,381 @@
 """
 mcp_browser_use/tools.py
 ─────────────────────────
-Thin wrapper around the `browser-use` CLI.
+Direct Playwright implementation for browser control.
 
 Auto-state behaviour
 ────────────────────
 Every command that mutates the page (open, click, input, type, keys, scroll,
-back) automatically fetches and appends `browser-use state` to its output.
+back) automatically fetches and appends the current state to its output.
 The LLM therefore NEVER needs to call `state` explicitly — it always has the
 current element list in the response of the previous action.
 """
 
-import subprocess
+import json
+import os
+import shlex
+import time
 from typing import Optional
 
-
-# Commands that mutate the page → state is auto-appended after each of these.
-_MUTATING_CMDS = {"open", "click", "input", "type", "keys", "scroll", "back",
-                  "switch", "close-tab", "hover", "dblclick", "rightclick", "select"}
+from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page
 
 
-# ── Low-level runner ──────────────────────────────────────────────────────────
+# ── Persistent in-process browser session ────────────────────────────────────
 
-def _run(args: list[str], timeout: int = 30) -> str:
-    """Run `browser-use <args>` and return stdout+stderr. Raises on failure."""
-    cmd = ["browser-use"] + args
+_pw = None
+_browser: Optional[Browser] = None
+_context: Optional[BrowserContext] = None
+_pages: list = []   # list[Page]
+_cur: int = 0       # index of the currently active tab
+
+
+def _launch() -> None:
+    """Start Playwright and launch Chromium (always headless) if not already running."""
+    global _pw, _browser, _context, _pages, _cur
+    if _pw is None:
+        _pw = sync_playwright().start()
+    if _browser is None or not _browser.is_connected():
+        _browser = _pw.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox",
+                  "--disable-dev-shm-usage"],
+        )
+        _context = None
+        _pages = []
+        _cur = 0
+    if _context is None:
+        _context = _browser.new_context(
+            viewport={"width": 1280, "height": 720},
+            user_agent=(
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            ),
+        )
+
+
+def _page() -> Page:
+    """Return the currently active page, creating one if needed."""
+    global _pages, _cur
+    _launch()
+    if not _pages:
+        _pages.append(_context.new_page())
+        _cur = 0
+    if _pages[_cur].is_closed():
+        _pages.pop(_cur)
+        _cur = max(0, _cur - 1)
+        if not _pages:
+            _pages.append(_context.new_page())
+            _cur = 0
+    return _pages[_cur]
+
+
+# ── Element indexing via data-mcp-idx stamps ──────────────────────────────────
+
+_SELECTOR = (
+    "a[href], button, input, select, textarea, "
+    "[role='button'], [role='link'], [role='checkbox'], "
+    "[role='radio'], [role='menuitem'], [role='option'], "
+    "[role='tab'], [role='combobox'], [onclick]"
+)
+
+_STAMP_SCRIPT = """(sel) => {
+    const els = Array.from(document.querySelectorAll(sel));
+    const results = [];
+    let idx = 0;
+    for (const el of els) {
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) continue;
+        el.dataset.mcpIdx = String(idx);
+        results.push({
+            index: idx,
+            tag: el.tagName.toLowerCase(),
+            text: (el.innerText || el.value || el.placeholder
+                   || el.getAttribute('aria-label') || '').trim().substring(0, 120),
+            type: el.type || el.getAttribute('role') || '',
+            href: el.getAttribute('href') || '',
+            name: el.getAttribute('name') || '',
+        });
+        idx++;
+    }
+    return results;
+}"""
+
+
+def _stamp(pg: Page) -> list:
+    """Inject data-mcp-idx into all visible interactive elements; return info list."""
+    return pg.evaluate(_STAMP_SCRIPT, _SELECTOR)
+
+
+def _el(index: int):
+    """Locator for the element stamped with the given index."""
+    return _page().locator(f"[data-mcp-idx='{index}']")
+
+
+# ── State helpers ─────────────────────────────────────────────────────────────
+
+def _state_str() -> str:
+    pg = _page()
+    url = pg.url
+    title = pg.title()
+    items = _stamp(pg)
+    lines = [f"URL: {url}", f"Title: {title}", "", "Interactive elements:"]
+    for el in items:
+        label = el["text"] or el["href"] or el["name"] or el["type"] or el["tag"]
+        kind = el["type"] or el["tag"]
+        lines.append(f"  [{el['index']}] <{el['tag']}> ({kind}) {label}")
+    return "\n".join(lines)
+
+
+def _with_state(msg: str) -> str:
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout
-        )
-        output = (result.stdout + result.stderr).strip()
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"browser-use failed (exit {result.returncode}):\n{output}"
-            )
-        return output
-    except FileNotFoundError:
-        raise RuntimeError(
-            "browser-use CLI not found. "
-            "Install it with: pip install browser-use && playwright install"
-        )
-    except subprocess.TimeoutExpired:
-        raise RuntimeError(
-            f"browser-use timed out after {timeout}s: {' '.join(cmd)}"
-        )
+        return f"{msg}\n\n[auto-state]\n{_state_str()}"
+    except Exception as exc:
+        return f"{msg}\n\n[auto-state failed: {exc}]"
 
 
 # ── Primary dispatcher ────────────────────────────────────────────────────────
 
-def browser_use(command: str, headed: bool = False) -> str:
+def browser_use(command: str) -> str:
     """
-    Run any browser-use CLI command.
+    Run any browser-use command.
 
     Mutating commands (open, click, input, type, keys, scroll, back)
     automatically append the updated page state to their output so the LLM
     never needs an explicit `state` call after an action.
     """
     parts = command.strip().split(maxsplit=1)
-    sub_cmd = parts[0].lower() if parts else ""
+    sub = parts[0].lower() if parts else ""
+    rest = parts[1].strip() if len(parts) > 1 else ""
 
-    args: list[str] = []
-    if headed and sub_cmd == "open":
-        args.append("--headed")
-    args += command.strip().split()
-
-    output = _run(args)
-
-    if sub_cmd in _MUTATING_CMDS:
-        label = f"browser-use: after '{sub_cmd}' — current state (auto-fetched)"
-        try:
-            state_output = _run(["state"])
-            output = f"{output}\n\n[{label}]\n{state_output}"
-        except RuntimeError as exc:
-            output += f"\n\n[browser-use: state fetch failed — {exc}]"
-
-    return output
+    if sub == "open":
+        return browser_open(rest)
+    if sub == "click":
+        return browser_click(int(rest))
+    if sub == "input":
+        p = shlex.split(rest)
+        return browser_input(int(p[0]), p[1] if len(p) > 1 else "")
+    if sub == "type":
+        return browser_type(rest.strip('"'))
+    if sub == "keys":
+        return browser_keys(rest.strip('"'))
+    if sub == "scroll":
+        return browser_scroll(rest or "down")
+    if sub == "back":
+        return browser_back()
+    if sub == "state":
+        return browser_state()
+    if sub == "screenshot":
+        return browser_screenshot(rest or "screenshots")
+    if sub == "switch":
+        return browser_switch_tab(int(rest))
+    if sub == "close-tab":
+        return browser_close_tab(int(rest) if rest else None)
+    if sub == "hover":
+        return browser_hover(int(rest))
+    if sub == "dblclick":
+        return browser_dblclick(int(rest))
+    if sub == "rightclick":
+        return browser_rightclick(int(rest))
+    if sub == "select":
+        p = shlex.split(rest)
+        return browser_select(int(p[0]), p[1] if len(p) > 1 else "")
+    if sub == "eval":
+        return browser_eval(rest.strip('"'))
+    if sub == "get":
+        p = rest.split(maxsplit=1)
+        what = p[0].lower() if p else ""
+        arg = p[1].strip() if len(p) > 1 else ""
+        if what == "text":
+            return browser_get_text(int(arg))
+        if what == "html":
+            sel = None
+            if "--selector" in arg:
+                sel = arg.split("--selector", 1)[1].strip().strip('"')
+            return browser_get_html(sel)
+        if what == "title":
+            return browser_get_title()
+        if what == "value":
+            return browser_get_value(int(arg))
+        if what == "attributes":
+            return browser_get_attributes(int(arg))
+        raise ValueError(f"Unknown get sub-command: {what!r}")
+    if sub == "close":
+        return browser_close()
+    raise ValueError(f"Unknown command: {sub!r}")
 
 
 # ── Convenience wrappers ──────────────────────────────────────────────────────
 
-def browser_open(url: str, headed: bool = False) -> str:
+def browser_open(url: str) -> str:
     """Open a URL. Page state is returned automatically."""
-    return browser_use(f"open {url}", headed=headed)
+    _launch()
+    _page().goto(url, wait_until="domcontentloaded", timeout=60_000)
+    return _with_state(f"Opened: {url}")
+
 
 def browser_state() -> str:
     """Get the current page state (URL, title, element list)."""
-    return _run(["state"])
+    return _state_str()
+
 
 def browser_click(index: int) -> str:
     """Click the element at index. Page state auto-returned."""
-    return browser_use(f"click {index}")
+    _el(index).click()
+    _page().wait_for_load_state("domcontentloaded")
+    return _with_state(f"Clicked element [{index}]")
+
 
 def browser_input(index: int, text: str) -> str:
     """Click element at index then type text. Page state auto-returned."""
-    return browser_use(f'input {index} "{text}"')
+    loc = _el(index)
+    loc.click()
+    loc.fill(text)
+    return _with_state(f"Input '{text}' into element [{index}]")
+
 
 def browser_type(text: str) -> str:
     """Type into the currently focused element. Page state auto-returned."""
-    return browser_use(f'type "{text}"')
+    _page().keyboard.type(text)
+    return _with_state(f"Typed: {text!r}")
+
 
 def browser_keys(key: str) -> str:
     """Send a keyboard key (e.g. 'Enter'). Page state auto-returned."""
-    return browser_use(f'keys "{key}"')
+    _page().keyboard.press(key)
+    _page().wait_for_load_state("domcontentloaded")
+    return _with_state(f"Keys: {key!r}")
+
 
 def browser_scroll(direction: str = "down") -> str:
     """Scroll up or down. Page state auto-returned."""
     assert direction in ("up", "down"), "direction must be 'up' or 'down'"
-    return browser_use(f"scroll {direction}")
+    delta = 400 if direction == "down" else -400
+    _page().evaluate(f"window.scrollBy(0, {delta})")
+    return _with_state(f"Scrolled {direction}")
+
 
 def browser_back() -> str:
     """Navigate back. Page state auto-returned."""
-    return browser_use("back")
+    _page().go_back(wait_until="domcontentloaded")
+    return _with_state("Navigated back")
+
 
 def browser_get_text(index: int) -> str:
     """Get the text content of the element at index."""
-    return browser_use(f"get text {index}")
+    return _el(index).inner_text()
+
 
 def browser_get_html(selector: Optional[str] = None) -> str:
     """Get full page HTML, or HTML of a specific CSS selector."""
     if selector:
-        return browser_use(f'get html --selector "{selector}"')
-    return browser_use("get html")
+        return _page().locator(selector).inner_html()
+    return _page().content()
+
 
 def browser_get_title() -> str:
     """Get the current page title."""
-    return browser_use("get title")
+    return _page().title()
+
 
 def browser_close() -> str:
     """Close all browser sessions. Call when the task is done."""
-    return browser_use("close --all")
+    global _pw, _browser, _context, _pages, _cur
+    if _context:
+        _context.close()
+        _context = None
+    if _browser:
+        _browser.close()
+        _browser = None
+    if _pw:
+        _pw.stop()
+        _pw = None
+    _pages = []
+    _cur = 0
+    return "All browser sessions closed."
 
-def browser_screenshot(directory: str = "screenshots") -> str:
-    """Take a screenshot and save it to the specified directory."""
-    import os
-    import time
-    os.makedirs(directory, exist_ok=True)
-    timestamp = str(int(time.time()))
-    filepath = os.path.join(directory, f"{timestamp}.png")
-    return browser_use(f"screenshot {filepath}")
+
+def browser_screenshot(path_or_dir: str = "screenshots") -> str:
+    """Take a screenshot and save it."""
+    _, ext = os.path.splitext(path_or_dir)
+    if ext.lower() in (".png", ".jpg", ".jpeg", ".webp"):
+        filepath = path_or_dir
+        os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
+    else:
+        os.makedirs(path_or_dir, exist_ok=True)
+        filepath = os.path.join(path_or_dir, f"{int(time.time())}.png")
+    _page().screenshot(path=filepath)
+    return f"Screenshot saved to: {filepath}"
+
 
 def browser_switch_tab(index: int) -> str:
     """Switch to a specific tab by index. Page state auto-returned."""
-    return browser_use(f"switch {index}")
+    global _cur
+    if index >= len(_pages):
+        raise ValueError(f"Tab index {index} out of range (found {len(_pages)} tabs)")
+    _cur = index
+    return _with_state(f"Switched to tab [{index}]")
+
 
 def browser_close_tab(index: Optional[int] = None) -> str:
     """Close the current tab or a specific tab by index. Page state auto-returned."""
-    if index is not None:
-        return browser_use(f"close-tab {index}")
-    return browser_use("close-tab")
+    global _pages, _cur
+    target = index if index is not None else _cur
+    if target >= len(_pages):
+        raise ValueError(f"Tab index {target} out of range")
+    _pages[target].close()
+    _pages.pop(target)
+    if _cur >= len(_pages):
+        _cur = max(0, len(_pages) - 1)
+    if _pages:
+        return _with_state(f"Closed tab [{target}]")
+    return f"Closed tab [{target}]. No tabs remaining."
+
 
 def browser_hover(index: int) -> str:
     """Hover over the element at index. Page state auto-returned."""
-    return browser_use(f"hover {index}")
+    _el(index).hover()
+    return _with_state(f"Hovered element [{index}]")
+
 
 def browser_dblclick(index: int) -> str:
     """Double-click the element at index. Page state auto-returned."""
-    return browser_use(f"dblclick {index}")
+    _el(index).dblclick()
+    return _with_state(f"Double-clicked element [{index}]")
+
 
 def browser_rightclick(index: int) -> str:
     """Right-click the element at index. Page state auto-returned."""
-    return browser_use(f"rightclick {index}")
+    _el(index).click(button="right")
+    return _with_state(f"Right-clicked element [{index}]")
+
 
 def browser_select(index: int, option: str) -> str:
     """Select a dropdown option. Page state auto-returned."""
-    return browser_use(f'select {index} "{option}"')
+    _el(index).select_option(label=option)
+    return _with_state(f"Selected '{option}' in element [{index}]")
+
 
 def browser_eval(js_code: str) -> str:
     """Execute JavaScript and return the result."""
-    return browser_use(f'eval "{js_code}"')
+    result = _page().evaluate(js_code)
+    return json.dumps(result, ensure_ascii=False, default=str)
+
 
 def browser_get_value(index: int) -> str:
     """Get the value of an input or textarea element at index."""
-    return browser_use(f"get value {index}")
+    return _el(index).input_value()
+
 
 def browser_get_attributes(index: int) -> str:
     """Get all attributes of the element at index as JSON."""
-    return browser_use(f"get attributes {index}")
+    attrs = _page().evaluate(
+        """(idx) => {
+            const el = document.querySelector('[data-mcp-idx="' + idx + '"]');
+            if (!el) return {};
+            const attrs = {};
+            for (const a of el.attributes) attrs[a.name] = a.value;
+            return attrs;
+        }""",
+        index,
+    )
+    return json.dumps(attrs, ensure_ascii=False)

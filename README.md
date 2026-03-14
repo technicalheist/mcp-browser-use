@@ -2,7 +2,16 @@
 
 > Full browser control for any LLM agent via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io).
 
-Powered by [browser-use](https://github.com/browser-use/browser-use) — a persistent, Playwright-backed browser session that your agent controls step-by-step.
+Powered by **Playwright** — a persistent, in-process headless Chromium session that your agent controls step-by-step.
+
+---
+
+## What's New in v0.3.0
+
+- **Direct Playwright backend** — no longer shells out to the `browser-use` CLI. The browser runs in-process, reliably, with no timeout/pipe issues.
+- **Always headless** — the server is designed for Docker. The `headed` parameter has been removed from all tools.
+- **Element index stability** — interactive elements are stamped with `data-mcp-idx` at state-fetch time, so the index the LLM sees always maps to the correct element even after DOM updates.
+- **Dependency simplified** — `browser-use` replaced by `playwright>=1.40.0`.
 
 ---
 
@@ -14,7 +23,7 @@ Every action that changes the page (`open`, `click`, `input`, `type`, `keys`, `s
 
 ## Installation
 
-### Option 1 — Docker (recommended, zero PATH issues)
+### Option 1 — Docker (recommended, zero setup)
 
 ```bash
 docker pull technicalheist/browser-mcp-server
@@ -26,10 +35,8 @@ Chromium is baked into the image — nothing else to install.
 
 ```bash
 pip install browser-mcp-server
+playwright install chromium
 ```
-
-> **Chromium is installed automatically on first run.** The server detects whether
-> the browser binary is present and downloads it if not (~170 MB, one-time).
 
 ---
 
@@ -213,9 +220,9 @@ options:
 ## Requirements
 
 - **Docker** (recommended — zero setup) OR Python 3.10+ with pip
-- `browser-use >= 0.12.0` (installed automatically)
+- `playwright >= 1.40.0` (installed automatically with pip; baked into Docker image)
 - `mcp >= 1.0.0` (installed automatically)
-- Chromium (baked into Docker image, or auto-installed on first run with pip)
+- Chromium (baked into Docker image, or run `playwright install chromium` after pip install)
 
 ---
 

@@ -25,8 +25,6 @@ Subsequent starts skip the download entirely (binary already on disk).
 """
 
 import argparse
-import os
-import subprocess
 import sys
 
 from mcp.server.fastmcp import FastMCP
@@ -56,38 +54,6 @@ from .tools import (
     browser_get_value,
     browser_get_attributes,
 )
-
-# ── Chromium auto-install ─────────────────────────────────────────────────────
-
-def _ensure_chromium() -> None:
-    """
-    Check if the Playwright Chromium binary is present.
-    If it is missing, download it automatically via `playwright install chromium`.
-
-    This runs at most once — subsequent calls return immediately because
-    the binary is already on disk.
-    """
-    try:
-        from playwright.sync_api import sync_playwright  # noqa: PLC0415
-
-        with sync_playwright() as p:
-            executable = p.chromium.executable_path
-            if os.path.exists(executable):
-                return  # Already installed — nothing to do
-    except Exception:
-        pass  # playwright not importable or path check failed → fall through
-
-    # Binary missing — download it now
-    print(
-        "[mcp-browser-use] Chromium not found. Installing automatically "
-        "(one-time download, ~170 MB)...",
-        file=sys.stderr,
-    )
-    subprocess.run(
-        [sys.executable, "-m", "playwright", "install", "chromium"],
-        check=True,
-    )
-    print("[mcp-browser-use] Chromium installed successfully.", file=sys.stderr)
 
 def create_server() -> FastMCP:
     """
@@ -136,15 +102,14 @@ def create_server() -> FastMCP:
             "  'close --all'                → close all sessions"
         )
     )
-    def browser_use_tool(command: str, headed: bool = False) -> str:
+    def browser_use_tool(command: str) -> str:
         """
         Run a browser-use CLI command.
 
         Args:
             command: Sub-command string (e.g. 'open https://example.com').
-            headed:  Show the browser window. Only applies to 'open'. Default false.
         """
-        return browser_use(command, headed=headed)
+        return browser_use(command)
 
     # ── tool: browser_open ────────────────────────────────────────────────────
     @mcp.tool(
@@ -154,15 +119,14 @@ def create_server() -> FastMCP:
             "is returned automatically."
         )
     )
-    def browser_open_tool(url: str, headed: bool = False) -> str:
+    def browser_open_tool(url: str) -> str:
         """
         Navigate to a URL and return the page state.
 
         Args:
-            url:    Full URL to open (e.g. 'https://news.ycombinator.com').
-            headed: Show the browser window. Default false.
+            url: Full URL to open (e.g. 'https://news.ycombinator.com').
         """
-        return browser_open(url, headed=headed)
+        return browser_open(url)
 
     # ── tool: browser_state ───────────────────────────────────────────────────
     @mcp.tool(
@@ -444,10 +408,6 @@ Examples:
         help="Port for HTTP transports (default: 8080)",
     )
     args = parser.parse_args()
-
-    # Ensure Chromium is present before the server starts accepting requests.
-    # No-op if already installed; downloads automatically on first run.
-    _ensure_chromium()
 
     server = create_server()
 
